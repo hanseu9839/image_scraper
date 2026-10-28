@@ -25,22 +25,25 @@ function createFolderName(pageUrl) {
   return `${hostname}_${timestamp}`;
 }
 
-function extensionFor(contentType, imageUrl) {
-  const types = {
-    "image/png": ".png",
-    "image/gif": ".gif",
-    "image/jpeg": ".jpg",
-  };
-  const normalizedType = contentType.split(";")[0].toLowerCase();
-  if (types[normalizedType]) return types[normalizedType];
+function detectAllowedImageExtension(data) {
+  const bytes = Buffer.from(data);
 
-  const extension = path.extname(new URL(imageUrl).pathname).toLowerCase();
-  return /^\.(jpe?g|png|gif)$/.test(extension) ? extension : ".jpg";
-}
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return ".jpg";
+  }
 
-function isAllowedImageType(contentType) {
-  const normalizedType = contentType.split(";")[0].trim().toLowerCase();
-  return new Set(["image/jpeg", "image/png", "image/gif"]).has(normalizedType);
+  if (
+    bytes.length >= 8 &&
+    bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return ".png";
+  }
+
+  if (bytes.length >= 6 && ["GIF87a", "GIF89a"].includes(bytes.subarray(0, 6).toString("ascii"))) {
+    return ".gif";
+  }
+
+  return null;
 }
 
 async function scrollToLoadImages(page) {
@@ -144,13 +147,12 @@ app.post("/api/scrape", async (req, res) => {
             maxContentLength: 20 * 1024 * 1024,
             headers: { Referer: url, "User-Agent": "Mozilla/5.0" },
           });
-          const contentType = response.headers["content-type"] || "";
-
-          // JPG/JPEG, PNG, GIF만 허용하고 WEBP, SVG, AVIF 등은 건너뜁니다.
-          if (!isAllowedImageType(contentType)) continue;
+          // 실제 파일 바이트가 JPG/JPEG, PNG, GIF일 때만 저장합니다.
+          const extension = detectAllowedImageExtension(response.data);
+          if (!extension) continue;
 
           const hash = crypto.createHash("sha1").update(imageUrl).digest("hex").slice(0, 8);
-          const fileName = `${String(downloadedFiles.length + 1).padStart(3, "0")}_${hash}${extensionFor(contentType, imageUrl)}`;
+          const fileName = `${String(downloadedFiles.length + 1).padStart(3, "0")}_${hash}${extension}`;
           await fs.writeFile(path.join(outputDirectory, fileName), response.data);
           downloadedFiles.push(fileName);
           downloadedUrls.add(imageUrl);
