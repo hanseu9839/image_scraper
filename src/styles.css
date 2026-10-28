@@ -1,0 +1,53 @@
+:root {
+  font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
+  color: #f7f7f4;
+  background: #050505;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #050505; }
+button, input { font: inherit; }
+.container { position: relative; min-height: 100vh; display: grid; place-items: center; overflow: hidden; padding: 56px 24px; background: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px), #050505; background-size: 52px 52px; }
+.ambient { position: absolute; width: 420px; height: 420px; border-radius: 50%; filter: blur(120px); opacity: .12; pointer-events: none; }
+.ambient-one { top: -200px; right: -100px; background: #c6ff36; }
+.ambient-two { bottom: -260px; left: -100px; background: #4c6fff; }
+.card { position: relative; width: min(760px, 100%); padding: 54px; background: rgba(15,15,15,.92); border: 1px solid #292929; border-radius: 28px; box-shadow: 0 40px 100px rgba(0,0,0,.65); backdrop-filter: blur(16px); }
+.hero { position: relative; padding-left: 76px; }
+.brand-mark { position: absolute; left: 0; top: 2px; width: 52px; height: 52px; display: grid; place-items: center; border: 1px solid #3b3b3b; border-radius: 16px; transform: rotate(-7deg); }
+.brand-mark span { position: absolute; width: 23px; height: 3px; border-radius: 3px; background: #c8ff3d; }
+.brand-mark span:last-child { transform: rotate(90deg); }
+.eyebrow { margin: 0 0 13px; color: #c8ff3d; font-size: 11px; font-weight: 800; letter-spacing: .2em; }
+h1 { margin: 0; font-size: clamp(42px, 8vw, 70px); font-weight: 750; letter-spacing: -.055em; line-height: .98; }
+h1 em { color: #c8ff3d; font-style: normal; }
+.description { max-width: 570px; margin: 25px 0 38px; color: #949494; font-size: 15px; line-height: 1.75; }
+form { display: grid; gap: 18px; }
+.field { display: grid; gap: 9px; }
+label { color: #d5d5d5; font-size: 13px; font-weight: 650; }
+.input-shell { position: relative; }
+.link-icon { position: absolute; left: 17px; top: 50%; z-index: 1; color: #727272; transform: translateY(-50%); }
+.input-shell input { padding-left: 48px; }
+input { width: 100%; height: 54px; padding: 0 17px; color: #f4f4f4; background: #151515; border: 1px solid #2d2d2d; border-radius: 12px; transition: border-color .2s, box-shadow .2s, background .2s; }
+input::placeholder { color: #555; }
+input:focus { outline: none; border-color: #778f37; background: #181a14; box-shadow: 0 0 0 4px rgba(200,255,61,.07); }
+button { display: flex; align-items: center; justify-content: space-between; height: 58px; margin-top: 6px; padding: 0 20px 0 24px; border: 0; border-radius: 13px; color: #080808; background: #c8ff3d; font-weight: 800; cursor: pointer; transition: transform .2s, background .2s, box-shadow .2s; }
+button:hover:not(:disabled) { background: #d6ff70; transform: translateY(-2px); box-shadow: 0 10px 30px rgba(200,255,61,.15); }
+button:disabled { color: #777; background: #242424; cursor: wait; }
+.button-arrow { display: grid; place-items: center; width: 30px; height: 30px; color: #c8ff3d; background: #0b0b0b; border-radius: 50%; font-size: 18px; }
+.message { margin: 20px 0 0; padding: 15px 17px; border-radius: 12px; }
+.error { color: #ff8f8f; background: rgba(255,77,77,.08); border: 1px solid rgba(255,77,77,.2); }
+.success { display: flex; align-items: center; gap: 13px; color: #dfffa1; background: rgba(200,255,61,.07); border: 1px solid rgba(200,255,61,.18); }
+.success-icon { display: grid; flex: 0 0 32px; height: 32px; place-items: center; color: #080808; background: #c8ff3d; border-radius: 50%; font-weight: 900; }
+.success div { display: grid; gap: 4px; }
+.success div > span { overflow-wrap: anywhere; color: #7f8a69; font-size: 12px; }
+footer { display: flex; align-items: center; gap: 13px; margin-top: 32px; padding-top: 22px; color: #666; border-top: 1px solid #252525; }
+footer > span { padding: 5px 7px; color: #7f8a69; border: 1px solid #35392d; border-radius: 5px; font: 700 9px monospace; }
+footer p { margin: 0; font-size: 12px; line-height: 1.5; }
+
+@media (max-width: 560px) {
+  .container { padding: 20px 14px; }
+  .card { padding: 32px 22px; border-radius: 20px; }
+  .hero { padding-left: 0; }
+  .brand-mark { position: relative; margin-bottom: 26px; }
+  .description { margin-bottom: 30px; }
+}
