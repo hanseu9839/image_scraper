@@ -77,6 +77,19 @@ export default function App() {
           </button>
         </form>
 
+        {loading && (
+          <div className="loading-panel" role="status" aria-live="polite">
+            <div className="loading-copy">
+              <span>페이지 분석 및 이미지 다운로드 중</span>
+              <span className="loading-dots" aria-hidden="true"><i /><i /><i /></span>
+            </div>
+            <div className="loading-track" aria-label="이미지 수집 진행 중">
+              <span className="loading-bar" />
+            </div>
+            <p>이미지가 많거나 대상 사이트가 느리면 잠시 시간이 걸릴 수 있습니다.</p>
+          </div>
+        )}
+
         {error && <p className="message error">{error}</p>}
         {result && (
           <div className="message success">

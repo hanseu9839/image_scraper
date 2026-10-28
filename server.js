@@ -25,8 +25,17 @@ function createFolderName(pageUrl) {
   return `${hostname}_${timestamp}`;
 }
 
-function detectAllowedImageExtension(data) {
+function detectAllowedImageExtension(data, contentType, imageUrl) {
   const bytes = Buffer.from(data);
+
+  // 실제 파일이 WEBP라면 확장자나 응답 헤더와 관계없이 제외합니다.
+  if (
+    bytes.length >= 12 &&
+    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+    bytes.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return null;
+  }
 
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     return ".jpg";
@@ -43,7 +52,65 @@ function detectAllowedImageExtension(data) {
     return ".gif";
   }
 
-  return null;
+  const normalizedType = contentType.split(";")[0].trim().toLowerCase();
+  if (!normalizedType.startsWith("image/") || normalizedType === "image/webp") return null;
+
+  const mimeExtensions = {
+    "image/apng": ".apng",
+    "image/avif": ".avif",
+    "image/bmp": ".bmp",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/svg+xml": ".svg",
+    "image/tiff": ".tiff",
+    "image/vnd.microsoft.icon": ".ico",
+    "image/x-icon": ".ico",
+  };
+  if (mimeExtensions[normalizedType]) return mimeExtensions[normalizedType];
+
+  try {
+    const urlExtension = path.extname(new URL(imageUrl).pathname).toLowerCase();
+    if (/^\.[a-z0-9]{2,8}$/.test(urlExtension) && urlExtension !== ".webp") {
+      return urlExtension;
+    }
+  } catch {
+    // MIME 타입을 이용한 확장자 생성을 계속합니다.
+  }
+
+  const subtype = normalizedType
+    .slice("image/".length)
+    .replace(/^x-/, "")
+    .split("+")[0]
+    .replace(/[^a-z0-9]/g, "");
+
+  return subtype && subtype !== "webp" ? `.${subtype}` : null;
+}
+
+function resolveImageCandidateUrls(candidate, pageUrl) {
+  try {
+    const absoluteUrl = new URL(candidate, pageUrl);
+    if (!["http:", "https:"].includes(absoluteUrl.protocol)) return [];
+
+    const urls = [];
+    const withoutWebpConversion = new URL(absoluteUrl);
+    let removedConversion = false;
+
+    for (const [key, value] of [...withoutWebpConversion.searchParams.entries()]) {
+      if (value.toLowerCase() === "webp") {
+        withoutWebpConversion.searchParams.delete(key);
+        removedConversion = true;
+      }
+    }
+
+    // CDN 변환 옵션을 제거한 원본 후보를 WEBP 변환 URL보다 먼저 시도합니다.
+    if (removedConversion) urls.push(withoutWebpConversion.href);
+    urls.push(absoluteUrl.href);
+    return urls;
+  } catch {
+    return [];
+  }
 }
 
 async function scrollToLoadImages(page) {
@@ -98,14 +165,11 @@ async function extractImageCandidates(page, pageUrl) {
     ].filter(Boolean));
   });
 
-  return candidateGroups.map((candidates) => [...new Set(candidates.flatMap((candidate) => {
-      try {
-        const absoluteUrl = new URL(candidate, pageUrl);
-        return ["http:", "https:"].includes(absoluteUrl.protocol) ? [absoluteUrl.href] : [];
-      } catch {
-        return [];
-      }
-    }))]).filter((candidates) => candidates.length > 0);
+  return candidateGroups
+    .map((candidates) => [...new Set(
+      candidates.flatMap((candidate) => resolveImageCandidateUrls(candidate, pageUrl)),
+    )])
+    .filter((candidates) => candidates.length > 0);
 }
 
 app.post("/api/scrape", async (req, res) => {
@@ -147,8 +211,12 @@ app.post("/api/scrape", async (req, res) => {
             maxContentLength: 20 * 1024 * 1024,
             headers: { Referer: url, "User-Agent": "Mozilla/5.0" },
           });
-          // 실제 파일 바이트가 JPG/JPEG, PNG, GIF일 때만 저장합니다.
-          const extension = detectAllowedImageExtension(response.data);
+          // 모든 이미지 형식을 허용하되 실제 WEBP 파일은 저장하지 않습니다.
+          const extension = detectAllowedImageExtension(
+            response.data,
+            response.headers["content-type"] || "",
+            imageUrl,
+          );
           if (!extension) continue;
 
           const hash = crypto.createHash("sha1").update(imageUrl).digest("hex").slice(0, 8);

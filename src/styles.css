@@ -34,6 +34,15 @@ button { display: flex; align-items: center; justify-content: space-between; hei
 button:hover:not(:disabled) { background: #d6ff70; transform: translateY(-2px); box-shadow: 0 10px 30px rgba(200,255,61,.15); }
 button:disabled { color: #777; background: #242424; cursor: wait; }
 .button-arrow { display: grid; place-items: center; width: 30px; height: 30px; color: #c8ff3d; background: #0b0b0b; border-radius: 50%; font-size: 18px; }
+.loading-panel { display: grid; gap: 11px; margin-top: 20px; padding: 16px 17px; color: #c8ff3d; background: rgba(200,255,61,.045); border: 1px solid rgba(200,255,61,.14); border-radius: 12px; }
+.loading-copy { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 700; }
+.loading-dots { display: flex; align-items: center; gap: 4px; }
+.loading-dots i { width: 4px; height: 4px; background: #c8ff3d; border-radius: 50%; animation: dotPulse 1.2s ease-in-out infinite; }
+.loading-dots i:nth-child(2) { animation-delay: .15s; }
+.loading-dots i:nth-child(3) { animation-delay: .3s; }
+.loading-track { position: relative; height: 5px; overflow: hidden; background: #252821; border-radius: 999px; }
+.loading-bar { position: absolute; inset-block: 0; left: -42%; width: 42%; background: linear-gradient(90deg, transparent, #c8ff3d 28%, #e8ffad 70%, transparent); border-radius: inherit; animation: loadingSweep 1.35s cubic-bezier(.45,0,.55,1) infinite; }
+.loading-panel p { margin: 0; color: #707568; font-size: 11px; line-height: 1.5; }
 .message { margin: 20px 0 0; padding: 15px 17px; border-radius: 12px; }
 .error { color: #ff8f8f; background: rgba(255,77,77,.08); border: 1px solid rgba(255,77,77,.2); }
 .success { display: flex; align-items: center; gap: 13px; color: #dfffa1; background: rgba(200,255,61,.07); border: 1px solid rgba(200,255,61,.18); }
@@ -43,6 +52,21 @@ button:disabled { color: #777; background: #242424; cursor: wait; }
 footer { display: flex; align-items: center; gap: 13px; margin-top: 32px; padding-top: 22px; color: #666; border-top: 1px solid #252525; }
 footer > span { padding: 5px 7px; color: #7f8a69; border: 1px solid #35392d; border-radius: 5px; font: 700 9px monospace; }
 footer p { margin: 0; font-size: 12px; line-height: 1.5; }
+
+@keyframes loadingSweep {
+  0% { left: -42%; }
+  100% { left: 100%; }
+}
+
+@keyframes dotPulse {
+  0%, 70%, 100% { opacity: .25; transform: translateY(0); }
+  35% { opacity: 1; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-bar, .loading-dots i { animation-duration: 2.5s; }
+  button { transition: none; }
+}
 
 @media (max-width: 560px) {
   .container { padding: 20px 14px; }
