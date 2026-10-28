@@ -174,6 +174,7 @@ async function extractImageCandidates(page, pageUrl) {
 
 app.post("/api/scrape", async (req, res) => {
   const { url } = req.body;
+  const requestId = crypto.randomUUID().slice(0, 8);
   let parsedUrl;
 
   try {
@@ -185,18 +186,48 @@ app.post("/api/scrape", async (req, res) => {
 
   const folderName = createFolderName(url);
   const outputDirectory = path.join(DOWNLOAD_ROOT, folderName);
+  const stats = {
+    imageTags: 0,
+    candidateGroups: 0,
+    candidateRequests: 0,
+    rejectedFormats: 0,
+    downloadFailures: 0,
+    downloaded: 0,
+  };
   let browser;
 
   try {
+    console.log(`[scrape:${requestId}] 시작`, { host: parsedUrl.hostname });
     await fs.mkdir(outputDirectory, { recursive: true });
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({
       userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130 Safari/537.36",
     });
 
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    const navigationResponse = await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
     await scrollToLoadImages(page);
+    stats.imageTags = await page.locator("img").count();
     const imageCandidateGroups = await extractImageCandidates(page, url);
+    stats.candidateGroups = imageCandidateGroups.length;
+    const pageInfo = {
+      status: navigationResponse?.status() ?? null,
+      finalUrl: page.url(),
+      title: await page.title(),
+      imageTags: stats.imageTags,
+      candidateGroups: stats.candidateGroups,
+    };
+    console.log(`[scrape:${requestId}] 페이지 분석`, pageInfo);
+
+    if (imageCandidateGroups.length === 0) {
+      const bodyPreview = (await page.locator("body").innerText().catch(() => ""))
+        .replace(/\s+/g, " ")
+        .slice(0, 240);
+      console.warn(`[scrape:${requestId}] 이미지 후보 없음`, { ...pageInfo, bodyPreview });
+    }
+
     const downloadedFiles = [];
     const downloadedUrls = new Set();
 
@@ -205,6 +236,7 @@ app.post("/api/scrape", async (req, res) => {
         if (downloadedUrls.has(imageUrl)) break;
 
         try {
+          stats.candidateRequests += 1;
           const response = await axios.get(imageUrl, {
             responseType: "arraybuffer",
             timeout: 20_000,
@@ -217,24 +249,39 @@ app.post("/api/scrape", async (req, res) => {
             response.headers["content-type"] || "",
             imageUrl,
           );
-          if (!extension) continue;
+          if (!extension) {
+            stats.rejectedFormats += 1;
+            continue;
+          }
 
           const hash = crypto.createHash("sha1").update(imageUrl).digest("hex").slice(0, 8);
           const fileName = `${String(downloadedFiles.length + 1).padStart(3, "0")}_${hash}${extension}`;
           await fs.writeFile(path.join(outputDirectory, fileName), response.data);
           downloadedFiles.push(fileName);
+          stats.downloaded += 1;
           downloadedUrls.add(imageUrl);
           break;
         } catch (error) {
-          console.warn(`다운로드 실패: ${imageUrl} (${error.message})`);
+          stats.downloadFailures += 1;
+          console.warn(`[scrape:${requestId}] 다운로드 실패`, {
+            imageUrl,
+            status: error.response?.status ?? null,
+            message: error.message,
+          });
         }
       }
     }
 
     if (downloadedFiles.length === 0) {
       await fs.rm(outputDirectory, { recursive: true, force: true });
-      return res.status(404).json({ message: "조건에 맞는 이미지를 찾지 못했습니다." });
+      console.warn(`[scrape:${requestId}] 수집 결과 없음`, stats);
+      return res.status(422).json({
+        message: `이미지를 수집하지 못했습니다. Render 로그에서 요청 ID ${requestId}를 확인해주세요.`,
+        requestId,
+      });
     }
+
+    console.log(`[scrape:${requestId}] 수집 완료`, stats);
 
     const zipFileName = `${folderName}.zip`;
     res.setHeader("Content-Type", "application/zip");
@@ -254,8 +301,16 @@ app.post("/api/scrape", async (req, res) => {
     await archive.finalize();
     await responseFinished;
   } catch (error) {
+    console.error(`[scrape:${requestId}] 처리 실패`, {
+      message: error.message,
+      stack: error.stack,
+      stats,
+    });
     if (!res.headersSent) {
-      return res.status(500).json({ message: `수집 중 오류가 발생했습니다: ${error.message}` });
+      return res.status(500).json({
+        message: `수집 중 오류가 발생했습니다: ${error.message} (요청 ID: ${requestId})`,
+        requestId,
+      });
     }
     res.destroy(error);
   } finally {
